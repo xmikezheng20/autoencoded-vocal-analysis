@@ -319,8 +319,10 @@ class VAE(nn.Module):
 		l2s = torch.sum(torch.pow(x.view(x.shape[0],-1) - x_rec, 2), dim=1)
 		pxz_term = pxz_term - 0.5 * self.model_precision * torch.sum(l2s)
 		elbo = elbo + pxz_term
-		# H[q(z|x)]
-		elbo = elbo + torch.sum(latent_dist.entropy())
+		# H[q(z|x)]: float64 avoids overflowing gradients for tiny d.
+		entropy = LowRankMultivariateNormal(mu.double(), u.double(),
+			d.double()).entropy()
+		elbo = elbo + entropy.sum().to(elbo.dtype)
 		if return_latent_rec:
 			return -elbo, z.detach().cpu().numpy(), \
 				x_rec.view(-1, X_SHAPE[0], X_SHAPE[1]).detach().cpu().numpy()
